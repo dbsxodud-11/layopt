@@ -25,5 +25,5 @@ python data/generate_data_diverse.py --num_turbins $num_turbins --layout_size $l
 
 # Wind Farm Layout Optimization
 python diffusion/generate_multiple_rounds_diverse.py --num_turbins $num_turbins --layout_size $layout_size --num_samples $num_samples \
---num_cycles 10 --num_generated_samples 1000 --wind_speed_target $wind_speed_target --wind_direction_target $wind_direction_target 
+--model_type gnn --num_cycles 10 --num_generated_samples 1000 --wind_speed_target $wind_speed_target --wind_direction_target $wind_direction_target --seed $seed
 ```

@@ -52,7 +52,6 @@ class GraphSimpleDiffusionGenerator:
             num_samples: int,
             cond: torch.Tensor,
             add_cond: torch.Tensor,
-            noise_level: float = 0.1,
     ) -> np.ndarray:
         assert num_samples % self.sample_batch_size == 0, 'num_samples must be a multiple of sample_batch_size'
         num_batches = num_samples // self.sample_batch_size
@@ -73,7 +72,6 @@ class GraphSimpleDiffusionGenerator:
                 cond=cond[i*self.sample_batch_size: (i+1)*self.sample_batch_size] if cond is not None else None,
                 temperature=self.guidance_scale,
                 add_cond=add_cond[i*self.sample_batch_size: (i+1)*self.sample_batch_size],
-                noise_level=noise_level,
             )
             sampled_outputs = sampled_outputs
             xs.append(sampled_outputs)
@@ -147,15 +145,14 @@ def main():
     # Training config
     parser.add_argument('--train_batch_size', type=int, default=1024)
     parser.add_argument('--small_batch_size', type=int, default=256)
-    parser.add_argument('--train_num_steps', type=int, default=10000)
-    parser.add_argument('--train_num_steps_boot', type=int, default=1000)
-    parser.add_argument('--load_train_num_steps', type=int, default=10000)
+    parser.add_argument('--train_num_steps', type=int, default=5000)
+    # parser.add_argument('--train_num_steps_boot', type=int, default=1000)
+    # parser.add_argument('--load_train_num_steps', type=int, default=10000)
     parser.add_argument('--num_generated_samples', type=int, default=1000)
     parser.add_argument('--save_and_sample_every', type=int, default=10000)
     parser.add_argument('--train_lr', type=float, default=1e-4)
     parser.add_argument('--cond_type', type=str, default="value")
     parser.add_argument('--cond_drop_prob', type=float, default=0.1)
-    parser.add_argument('--noise_level', type=float, default=0.1)
     
     # Other config
     parser.add_argument('--seed', type=int, default=0)
@@ -209,12 +206,33 @@ def main():
     if not os.path.exists(train_results_dir):
         os.makedirs(train_results_dir)
         
+    train_results_path = os.path.join(
+        train_results_dir, 
+        f'{args.num_turbins}_{args.num_samples}_{args.layout_size}x{args.layout_size}'
+    )
+    train_results_path += f"_speed{args.wind_speed_min}_{args.wind_speed_max}_direction{args.wind_direction_min}_{args.wind_direction_max}"
+    
+    print("Training model...")
+    trainer = Trainer(
+        diffusion_model=diffusion_model,  # Continue training the same model
+        dataset=dataset,
+        train_batch_size=args.train_batch_size,
+        small_batch_size=args.small_batch_size,
+        train_num_steps=args.train_num_steps,
+        save_and_sample_every=args.save_and_sample_every,
+        results_folder=train_results_path,
+        cond_type=args.cond_type,
+        cond_drop_prob=args.cond_drop_prob,
+        add_cond=True,
+    )
+    trainer.train()    
+        
     sample_results_dir = f"Experiments/sample_{args.model_type}_{args.data_type}"
     if not os.path.exists(sample_results_dir):
         os.makedirs(sample_results_dir)
         
     sample_results_path = os.path.join(sample_results_dir, f'{args.guidance_scale}_{args.guidance_multiplier}_{args.num_turbins}_{args.num_samples}_{args.layout_size}x{args.layout_size}')
-    sample_results_path += f"_target_speed{args.wind_speed_target}_target_direction{args.wind_direction_target}_epoch{args.load_train_num_steps}"
+    sample_results_path += f"_target_speed{args.wind_speed_target}_target_direction{args.wind_direction_target}_epoch{args.train_num_steps}"
     
     # Main loop
     for cycle in range(args.num_cycles):
@@ -233,13 +251,15 @@ def main():
             dataset=dataset,
             train_batch_size=args.train_batch_size,
             small_batch_size=args.small_batch_size,
-            train_num_steps=args.load_train_num_steps + args.train_num_steps_boot,
+            train_num_steps=args.train_num_steps * 2,
             save_and_sample_every=args.save_and_sample_every,
             results_folder=train_results_path,
             cond_type=args.cond_type,
             cond_drop_prob=args.cond_drop_prob,
             add_cond=True,
         )
+        trainer.ema.to(device)
+        trainer.load(milestone=args.train_num_steps)
         trainer.train()
         
         # Generate samples using trained model
@@ -303,7 +323,6 @@ def main():
             num_samples=args.num_generated_samples,
             cond=cond,
             add_cond=add_cond,
-            noise_level=args.noise_level,
         )
         
         sampled_layouts = sampled_layouts.reshape(args.num_generated_samples, args.num_turbins, 2)

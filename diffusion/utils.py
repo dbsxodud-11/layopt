@@ -24,7 +24,7 @@ def construct_diffusion_model(
         inputs = inputs.flatten(1)
         event_dim = inputs.shape[1]
         if add_cond_dim is not None:
-            model = ResidualMLPDenoiserDiverse(d_in=event_dim, cond_dim=cond_dim, add_cond_dim=add_cond_dim)
+            model = ResidualMLPDenoiserDiverse(d_in=event_dim, cond_dim=cond_dim)
         else:
             model = ResidualMLPDenoiser(d_in=event_dim, cond_dim=cond_dim)
     
@@ -41,7 +41,7 @@ def construct_diffusion_model(
         inputs = inputs.reshape(-1, inputs.shape[-1])
         event_dim = inputs.shape[-1]
         if add_cond_dim is not None:
-            model = ResidualGNNDenoiserDiverse(d_in=event_dim, cond_dim=cond_dim, add_cond_dim=add_cond_dim)
+            model = ResidualGNNDenoiserDiverse(d_in=event_dim, cond_dim=cond_dim)
         else:
             model = ResidualGNNDenoiser(d_in=event_dim, cond_dim=cond_dim)
 

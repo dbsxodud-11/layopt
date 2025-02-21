@@ -208,7 +208,6 @@ class ElucidatedDiffusion(nn.Module):
             add_cond=None,
             temperature: float = 1.2,
             disable_tqdm: bool = False,
-            noise_level=None,
     ):
         if cond is not None:
             uncond, cond = self.process_cond(cond)
@@ -232,15 +231,10 @@ class ElucidatedDiffusion(nn.Module):
         
         # inputs are noise at the beginning
         init_sigma = sigmas[0]
-        # inputs = init_sigma * torch.randn(shape, device=self.device)
-        noise_ts = int(num_sample_steps*(1-noise_level))
-        if noise_level == 1.0:
-            inputs = sigmas[noise_ts] * torch.randn(shape, device=self.device)
-        else:
-            inputs = x + sigmas[noise_ts] * torch.randn(shape, device=self.device)
+        inputs = init_sigma * torch.randn(shape, device=self.device)
 
         # gradually denoise
-        for sigma, sigma_next, gamma in tqdm(sigmas_and_gammas[noise_ts:], desc='sampling time step', mininterval=1,
+        for sigma, sigma_next, gamma in tqdm(sigmas_and_gammas, desc='sampling time step', mininterval=1,
                                              disable=disable_tqdm):
             sigma, sigma_next, gamma = map(lambda t: t.item(), (sigma, sigma_next, gamma))
 
@@ -517,7 +511,6 @@ class GraphElucidatedDiffusion(nn.Module):
             temperature: float = 1.2,
             disable_tqdm: bool = False,
             add_cond=None,
-            noise_level: float = 0.1,
     ):
         x = x.to(device=self.device)
         x = self.normalizer.normalize(x)
@@ -542,15 +535,10 @@ class GraphElucidatedDiffusion(nn.Module):
 
         # inputs are noise at the beginning
         init_sigma = sigmas[0]
-        # inputs = init_sigma * torch.randn(shape, device=self.device)
-        noise_ts = int(num_sample_steps*(1-noise_level))
-        if noise_level == 1.0:
-            inputs = sigmas[noise_ts] * torch.randn(shape, device=self.device)
-        else:
-            inputs = x + sigmas[noise_ts] * torch.randn(shape, device=self.device)
+        inputs = init_sigma * torch.randn(shape, device=self.device)
 
         # gradually denoise
-        for sigma, sigma_next, gamma in tqdm(sigmas_and_gammas[noise_ts:], desc='sampling time step', mininterval=1,
+        for sigma, sigma_next, gamma in tqdm(sigmas_and_gammas, desc='sampling time step', mininterval=1,
                                              disable=disable_tqdm):
             sigma, sigma_next, gamma = map(lambda t: t.item(), (sigma, sigma_next, gamma))
 
@@ -813,11 +801,11 @@ class Trainer(object):
         model.load_state_dict(data['model'])
 
         self.step = data['step']
-        self.opt.load_state_dict(data['opt'])
+        # self.opt.load_state_dict(data['opt'])
         self.ema.load_state_dict(data['ema'])
 
-        if exists(self.accelerator.scaler) and exists(data['scaler']):
-            self.accelerator.scaler.load_state_dict(data['scaler'])
+        # if exists(self.accelerator.scaler) and exists(data['scaler']):
+        #     self.accelerator.scaler.load_state_dict(data['scaler'])
 
     # Train for the full number of steps.
     def train(self):
